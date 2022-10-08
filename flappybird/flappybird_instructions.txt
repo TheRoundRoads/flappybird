@@ -1,0 +1,4 @@
+Run main.py to play the game
+
+Press enter to start / retry
+Press space to jump
