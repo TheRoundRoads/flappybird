@@ -169,19 +169,20 @@ def redrawGameWindow(bg_pos, grd_pos, t):
 
     return bg_pos, grd_pos
 
-def changeState(nextState):
-    while True:
-        clock.tick(FPS)
-        BG_POS, GRD_POS = redrawGameWindow(BG_POS, GRD_POS, t1 - t0)
-        events = pygame.event.get()
-        for event in events:
-            if event.type == pygame.QUIT:
-                state = nextState
-                run = False
-                break
-            if event.type == pygame.KEYUP and event.key == pygame.K_RETURN:
-                state = nextState
-                break
+def load():
+    highscores = []
+    with open(str(Path(__file__).parent) + "\highscores.txt", "r") as txt_file:
+        for row in txt_file:
+            if row == "\n": break
+            row = str(row).strip("\n").split(",")
+            highscores.append([row[0], int(row[1])])
+    
+    return highscores
+
+def write(highscores):
+    with open(str(Path(__file__).parent) + "\highscores.txt", "w") as txt_file:
+        for name, score in highscores:
+            txt_file.write(f"{name},{score}\n")
 
 run = True
 state = "start"
@@ -189,7 +190,7 @@ t0 = 0
 t1 = 0
 isJump = False
 SCORE = 0
-HIGHSCORES = [["", 0] for _ in range(5)]
+HIGHSCORES = load()
 MIN_HIGHSCORE = 5
 NAME = ""
 while run:
@@ -328,3 +329,4 @@ while run:
     BG_POS, GRD_POS = redrawGameWindow(BG_POS, GRD_POS, t1 - t0)
 
 pygame.quit()
+write(HIGHSCORES)
