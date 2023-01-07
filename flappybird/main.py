@@ -1,6 +1,7 @@
 from random import randint
 import time
 from classes import *
+from pathlib import Path
 
 import pygame
 
@@ -9,7 +10,7 @@ pygame.mixer.init()
 
 clock = pygame.time.Clock()
 
-PATH = "C:\\Users\\micha\\PycharmProjects\\pythonProject\\Games\\flappybird\\media"
+PATH = str(Path(__file__).parent) + "\media"
 
 FPS = 30
 WIDTH = 1920 // 2
