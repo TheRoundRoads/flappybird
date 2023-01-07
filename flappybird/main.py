@@ -51,6 +51,8 @@ t_pipe_sprite = pygame.transform.flip(b_pipe_sprite, False, True)
 
 MAX_PAIRS = int(WIDTH/pipe_dims[0]) + 2
 
+ALLOWED = {"_", "-", " ", "@", "<", ">", ",", ".", "/"}
+
 def initialisePairs():
     pipe_y = randint(HEIGHT - pipe_dims[1], HEIGHT - pipe_dims[1] + 200)
     bottomPipe = Pipe(WIDTH, pipe_y, pipe_dims[0], pipe_dims[1], True)
@@ -91,6 +93,27 @@ def collide(body1, body2):  # Standard AABB collision
         return True
     return False
 
+def addScore(highscores, score):
+    for i, row in enumerate(highscores):
+        if score[1] >= row[1]:
+            highscores.insert(i, score)
+            break
+    highscores.pop()
+    return highscores
+
+def getFontSize(s):
+    if len(s) > 30:
+        return 20
+    elif len(s) > 20:
+        return 30
+    else:
+        return 40
+    
+def drawGridLines():
+    pygame.draw.rect(screen, COLOUR, pygame.Rect(200, 110, 5, 410))
+    pygame.draw.rect(screen, COLOUR, pygame.Rect(740, 110, 5, 410))
+    for i in range(5):
+        pygame.draw.rect(screen, COLOUR, pygame.Rect(40, 170 + i * 70, WIDTH - 80, 5))
 
 def redrawGameWindow(bg_pos, grd_pos, t):
     screen.blit(background, (BG_POS, 0))
@@ -111,6 +134,26 @@ def redrawGameWindow(bg_pos, grd_pos, t):
             screen.blit(b_pipe_sprite, (pair.bottom.x, pair.bottom.y))
             pair.top.x -= PIPE_SPEED
             pair.bottom.x -= PIPE_SPEED
+            
+    if state == "name":
+        drawFont(f"Congratulations! Your score is:", flappy_font, 50, (WIDTH//2, 50))
+        drawFont(f"{SCORE}", flappy_font, 150, (WIDTH//2, 150))
+        drawFont("Enter your name:", flappy_font, 40, (WIDTH//2, HEIGHT//2 - 10))
+        drawFont(NAME, flappy_font, 100, (WIDTH//2, HEIGHT//2 + 80))
+        drawFont("Press 'Enter' to continue!", flappy_font, 30, (WIDTH//2, HEIGHT//2 + 180))
+        
+    if state == "board":
+        drawFont("HALL OF FAME", flappy_font, 80, (WIDTH//2, 60))
+        drawFont("RANK", flappy_font, 50, (120, 140))
+        drawFont("NAME", flappy_font, 50, (WIDTH//2, 140))
+        drawFont("SCORE", flappy_font, 50, (840, 140))
+        drawGridLines()
+        for i in range(5):
+            height = 205 + i * 70
+            drawFont(f"#{i+1}", flappy_font, 40, (100, height))
+            drawFont(HIGHSCORES[i][0], flappy_font, getFontSize(HIGHSCORES[i][0]), (WIDTH//2, height))
+            drawFont(str(HIGHSCORES[i][1]), flappy_font, 40, (840, height))
+        
 
     if state == "end":
         drawFont("SCORE:", flappy_font, 50, (WIDTH//2, 100))
@@ -126,6 +169,19 @@ def redrawGameWindow(bg_pos, grd_pos, t):
 
     return bg_pos, grd_pos
 
+def changeState(nextState):
+    while True:
+        clock.tick(FPS)
+        BG_POS, GRD_POS = redrawGameWindow(BG_POS, GRD_POS, t1 - t0)
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.QUIT:
+                state = nextState
+                run = False
+                break
+            if event.type == pygame.KEYUP and event.key == pygame.K_RETURN:
+                state = nextState
+                break
 
 run = True
 state = "start"
@@ -133,6 +189,9 @@ t0 = 0
 t1 = 0
 isJump = False
 SCORE = 0
+HIGHSCORES = [["", 0] for _ in range(5)]
+MIN_HIGHSCORE = 5
+NAME = ""
 while run:
     screen.fill((0, 0, 0))
     clock.tick(FPS)
@@ -144,6 +203,19 @@ while run:
         if state == "play":
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 isJump = True
+        if state == "name":
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_BACKSPACE:
+                    if NAME:
+                        NAME = NAME[:-1]
+                elif event.unicode in ALLOWED or event.unicode.isalnum():
+                    NAME += event.unicode   
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_RETURN and NAME:
+                    HIGHSCORES = addScore(HIGHSCORES, [NAME, SCORE])
+                    NAME = ""
+                    state = "board"
+                
 
     if state == "start":
         pipePairs, pairIndex, pipe_y = initialisePairs()
@@ -181,7 +253,11 @@ while run:
         bird.y += bird.velocity
 
         if bird.y < 0 or bird.y > HEIGHT - bird_dims[1]:
-            state = "end"
+            pygame.mixer.Sound.play(explosion_sound)
+            if SCORE >= max(HIGHSCORES[-1][1], MIN_HIGHSCORE):                        
+                state = "name"
+            else:
+                state = "end"
 
         # Pipe creation logic
         if pipePairs[pairIndex].top.x + pipe_dims[0] + PIPE_INTERVAL <= WIDTH:  # Check if new pipe needs to be created
@@ -214,11 +290,15 @@ while run:
 
             if pair.top.x < WIDTH // 3 + bird_dims[0]:
                 if collide(pair.top, bird) or collide(pair.bottom, bird):
-                    state = "end"
-
-    if state == "end":
-        pygame.mixer.Sound.play(explosion_sound)
-        while state == "end":
+                    # go to name or end based on score
+                    pygame.mixer.Sound.play(explosion_sound)
+                    if SCORE >= max(HIGHSCORES[-1][1], MIN_HIGHSCORE):                        
+                        state = "name"
+                    else:
+                        state = "end"
+    
+    if state == "board":
+        while state == "board":
             clock.tick(FPS)
             BG_POS, GRD_POS = redrawGameWindow(BG_POS, GRD_POS, t1 - t0)
             events = pygame.event.get()
@@ -229,6 +309,20 @@ while run:
                     break
                 if event.type == pygame.KEYUP and event.key == pygame.K_RETURN:
                     state = "start"
+                    break
+    
+    if state == "end":
+        while state == "end":
+            clock.tick(FPS)
+            BG_POS, GRD_POS = redrawGameWindow(BG_POS, GRD_POS, t1 - t0)
+            events = pygame.event.get()
+            for event in events:
+                if event.type == pygame.QUIT:
+                    state = "board"
+                    run = False
+                    break
+                if event.type == pygame.KEYUP and event.key == pygame.K_RETURN:
+                    state = "board"
                     break
 
     BG_POS, GRD_POS = redrawGameWindow(BG_POS, GRD_POS, t1 - t0)
